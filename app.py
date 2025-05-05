@@ -21,6 +21,8 @@ else:
 # Initialize session state
 if 'paid' not in st.session_state or not isinstance(st.session_state.paid, dict):
     st.session_state.paid = {}
+
+# Ensure analytics is initialized for each video in session state
 if 'analytics' not in st.session_state:
     st.session_state.analytics = {v['id']: {'previewed': 0, 'downloaded': 0} for v in video_metadata}
 
@@ -53,6 +55,10 @@ if submitted:
             "downloaded": 0
         }
         video_metadata.append(entry)
+
+        # Ensure analytics is initialized for the new video
+        st.session_state.analytics[uploaded_file.name] = {'previewed': 0, 'downloaded': 0}
+
         with open(METADATA_FILE, "w") as f:
             json.dump(video_metadata, f)
 
