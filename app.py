@@ -2,13 +2,17 @@ import streamlit as st
 import os
 from pathlib import Path
 import json
+from moviepy.video.io.VideoFileClip import VideoFileClip
 
 st.set_page_config(page_title="MP4 Seller Prototype", layout="centered")
 st.title("🎬 Upload and Sell Your MP4 Video")
 
 STORAGE_DIR = Path("temp")
+PREVIEW_DIR = STORAGE_DIR / "previews"
 METADATA_FILE = STORAGE_DIR / "metadata.json"
+
 STORAGE_DIR.mkdir(exist_ok=True)
+PREVIEW_DIR.mkdir(exist_ok=True)
 PREVIEW_DURATION = 10  # seconds
 
 # Load metadata
@@ -22,11 +26,10 @@ else:
 if 'paid' not in st.session_state or not isinstance(st.session_state.paid, dict):
     st.session_state.paid = {}
 
-# Ensure analytics is initialized for each video in session state
 if 'analytics' not in st.session_state:
     st.session_state.analytics = {}
 
-# Upload new video form
+# Upload form
 st.subheader("Upload New Video")
 with st.form("upload_form"):
     uploaded_file = st.file_uploader("Upload MP4", type=["mp4"])
@@ -43,6 +46,12 @@ if submitted:
         with open(file_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
 
+        # Create 10-second preview
+        preview_file = PREVIEW_DIR / f"preview_{uploaded_file.name}"
+        with VideoFileClip(str(file_path)) as clip:
+            preview_clip = clip.subclip(0, min(PREVIEW_DURATION, clip.duration))
+            preview_clip.write_videofile(str(preview_file), codec="libx264", audio_codec="aac", logger=None)
+
         entry = {
             "id": uploaded_file.name,
             "title": title,
@@ -50,24 +59,25 @@ if submitted:
             "price": price,
             "currency": currency,
             "path": str(file_path),
-            "cover_art": cover_art.name if cover_art else None,
-            "previewed": 0,
-            "downloaded": 0
+            "preview": str(preview_file),
+            "cover_art": cover_art.name if cover_art else None
         }
         video_metadata.append(entry)
+        st.session_state.analytics[uploaded_file.name] = {"previewed": 0, "downloaded": 0}
 
-        # Ensure analytics is initialized for the new video
-        st.session_state.analytics[uploaded_file.name] = {'previewed': 0, 'downloaded': 0}
-
-        # Save metadata to file
+        # Save metadata
         with open(METADATA_FILE, "w") as f:
             json.dump(video_metadata, f)
+
+        if cover_art:
+            with open(STORAGE_DIR / cover_art.name, "wb") as f:
+                f.write(cover_art.getbuffer())
 
         st.success("✅ Video uploaded and listed successfully!")
     else:
         st.error("❌ Please complete all fields and upload a video.")
 
-# Browse listed videos
+# Browse existing songs
 st.subheader("Available Songs")
 if video_metadata:
     selected_title = st.selectbox("Choose a song to preview and buy", [v["title"] for v in video_metadata])
@@ -77,38 +87,26 @@ if video_metadata:
     st.subheader(selected_video["title"])
     st.write(selected_video["description"])
 
-    # Check if cover art exists before trying to display it
     if selected_video.get("cover_art"):
         st.image(STORAGE_DIR / selected_video["cover_art"], caption="Cover Art")
 
-    # Show preview
-    if st.button("Preview 10s"):
-        preview_video_path = selected_video["path"]
-        st.video(preview_video_path, start_time=0)
-        
-        # Check if analytics entry exists for the selected video, if not, initialize it
-        if selected_video["id"] in st.session_state.analytics:
-            st.session_state.analytics[selected_video["id"]]["previewed"] += 1
-        else:
-            # If no analytics data, initialize it
-            st.session_state.analytics[selected_video["id"]] = {"previewed": 1, "downloaded": 0}
-            st.warning(f"Initializing analytics for {selected_video['title']}.")
+    # Preview button
+    if st.button("▶ Preview 10s"):
+        st.video(selected_video["preview"])
+        st.session_state.analytics.setdefault(selected_video["id"], {"previewed": 0, "downloaded": 0})
+        st.session_state.analytics[selected_video["id"]]["previewed"] += 1
 
-    # Display pricing info and simulate payment
+    # Payment & full access
     if not st.session_state.paid.get(selected_video["id"], False):
         st.info(f"💰 Price: {selected_video['price']} {selected_video['currency']}")
-        if st.button("Simulate Payment"):
+        if st.button("💳 Simulate Payment"):
             st.session_state.paid[selected_video["id"]] = True
-            st.success("🎉 Payment received! Enjoy your video.")
+            st.success("🎉 Payment received! Enjoy your full video.")
     else:
-        st.video(selected_video["path"])
+        st.video(selected_video["path"])  # Full video access after payment
 
-    # Show analytics
-    if selected_video["id"] in st.session_state.analytics:
-        preview_count = st.session_state.analytics[selected_video["id"]]["previewed"]
-        download_count = st.session_state.analytics[selected_video["id"]]["downloaded"]
-        st.write(f"Previewed {preview_count} times, Downloaded {download_count} times.")
-    else:
-        st.warning(f"Warning: Analytics for {selected_video['id']} not found!")
+    # Analytics
+    analytics = st.session_state.analytics.get(selected_video["id"], {"previewed": 0, "downloaded": 0})
+    st.write(f"👁️ Previewed {analytics['previewed']} times.")
 else:
     st.info("No songs uploaded yet.")
