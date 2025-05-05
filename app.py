@@ -2,7 +2,7 @@ import streamlit as st
 import os
 from pathlib import Path
 import json
-from moviepy.video.io.VideoFileClip import VideoFileClip
+from moviepy.editor import VideoFileClip
 
 st.set_page_config(page_title="MP4 Seller Prototype", layout="centered")
 st.title("🎬 Upload and Sell Your MP4 Video")
@@ -31,9 +31,8 @@ for video in video_metadata:
             if preview_path.exists():
                 preview_path.unlink()  # delete broken preview
 
-            with VideoFileClip(path) as clip:
-                preview_clip = clip.subclip(0, min(PREVIEW_DURATION, clip.duration))
-                preview_clip.write_videofile(str(preview_path), codec="libx264", audio_codec="aac", logger=None)
+            clip = VideoFileClip(str(path)).subclip(0, min(PREVIEW_DURATION, VideoFileClip(str(path)).duration))
+            clip.write_videofile(str(preview_path), codec="libx264", audio_codec="aac", logger=None)
             video["preview"] = str(preview_path)
             print("✅ Preview re-created for Mindslip")
         except Exception as e:
@@ -46,9 +45,8 @@ for video in video_metadata:
 
     if not preview_path.exists():
         try:
-            with VideoFileClip(full_path) as clip:
-                preview_clip = clip.subclip(0, min(PREVIEW_DURATION, clip.duration))
-                preview_clip.write_videofile(str(preview_path), codec="libx264", audio_codec="aac", logger=None)
+            clip = VideoFileClip(str(full_path)).subclip(0, min(PREVIEW_DURATION, VideoFileClip(str(full_path)).duration))
+            clip.write_videofile(str(preview_path), codec="libx264", audio_codec="aac", logger=None)
             video["preview"] = str(preview_path)
             print(f"✅ Created preview for: {video['title']}")
         except Exception as e:
@@ -86,9 +84,8 @@ if submitted:
 
         # Create 10-second preview
         preview_file = PREVIEW_DIR / f"preview_{uploaded_file.name}"
-        with VideoFileClip(str(file_path)) as clip:
-            preview_clip = clip.subclip(0, min(PREVIEW_DURATION, clip.duration))
-            preview_clip.write_videofile(str(preview_file), codec="libx264", audio_codec="aac", logger=None)
+        clip = VideoFileClip(str(file_path)).subclip(0, min(PREVIEW_DURATION, VideoFileClip(str(file_path)).duration))
+        clip.write_videofile(str(preview_file), codec="libx264", audio_codec="aac", logger=None)
 
         entry = {
             "id": uploaded_file.name,
@@ -140,9 +137,8 @@ if video_metadata:
             try:
                 path = Path(selected_video["path"])
                 preview_path = PREVIEW_DIR / f"preview_{path.name}"
-                with VideoFileClip(path) as clip:
-                    preview_clip = clip.subclip(0, min(PREVIEW_DURATION, clip.duration))
-                    preview_clip.write_videofile(str(preview_path), codec="libx264", audio_codec="aac", logger=None)
+                clip = VideoFileClip(str(path)).subclip(0, min(PREVIEW_DURATION, VideoFileClip(str(path)).duration))
+                clip.write_videofile(str(preview_path), codec="libx264", audio_codec="aac", logger=None)
                 selected_video["preview"] = str(preview_path)
                 st.video(str(preview_path))
                 st.session_state.analytics.setdefault(selected_video["id"], {"previewed": 0, "downloaded": 0})
