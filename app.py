@@ -24,7 +24,7 @@ if 'paid' not in st.session_state or not isinstance(st.session_state.paid, dict)
 
 # Ensure analytics is initialized for each video in session state
 if 'analytics' not in st.session_state:
-    st.session_state.analytics = {v['id']: {'previewed': 0, 'downloaded': 0} for v in video_metadata}
+    st.session_state.analytics = {}
 
 # Upload new video form
 st.subheader("Upload New Video")
@@ -59,6 +59,7 @@ if submitted:
         # Ensure analytics is initialized for the new video
         st.session_state.analytics[uploaded_file.name] = {'previewed': 0, 'downloaded': 0}
 
+        # Save metadata to file
         with open(METADATA_FILE, "w") as f:
             json.dump(video_metadata, f)
 
@@ -85,11 +86,13 @@ if video_metadata:
         preview_video_path = selected_video["path"]
         st.video(preview_video_path, start_time=0)
         
-        # Debugging: Check if the video ID exists in analytics
+        # Check if analytics entry exists for the selected video, if not, initialize it
         if selected_video["id"] in st.session_state.analytics:
             st.session_state.analytics[selected_video["id"]]["previewed"] += 1
         else:
-            st.warning(f"Warning: {selected_video['id']} not found in analytics!")
+            # If no analytics data, initialize it
+            st.session_state.analytics[selected_video["id"]] = {"previewed": 1, "downloaded": 0}
+            st.warning(f"Initializing analytics for {selected_video['title']}.")
 
     # Display pricing info and simulate payment
     if not st.session_state.paid.get(selected_video["id"], False):
