@@ -91,10 +91,15 @@ if video_metadata:
         st.image(STORAGE_DIR / selected_video["cover_art"], caption="Cover Art")
 
     # Preview button
+       # Preview button
     if st.button("▶ Preview 10s"):
-        st.video(selected_video["preview"])
-        st.session_state.analytics.setdefault(selected_video["id"], {"previewed": 0, "downloaded": 0})
-        st.session_state.analytics[selected_video["id"]]["previewed"] += 1
+        if "preview" in selected_video and os.path.exists(selected_video["preview"]):
+            st.video(selected_video["preview"])
+            st.session_state.analytics.setdefault(selected_video["id"], {"previewed": 0, "downloaded": 0})
+            st.session_state.analytics[selected_video["id"]]["previewed"] += 1
+        else:
+            st.warning("⚠️ Preview not available for this video.")
+
 
     # Payment & full access
     if not st.session_state.paid.get(selected_video["id"], False):
