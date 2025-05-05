@@ -128,14 +128,28 @@ if video_metadata:
     if selected_video.get("cover_art"):
         st.image(STORAGE_DIR / selected_video["cover_art"], caption="Cover Art")
 
-    # Preview button
+    # Preview button with fallback generation
     if st.button("▶ Preview 10s"):
-        if "preview" in selected_video and os.path.exists(selected_video["preview"]):
-            st.video(selected_video["preview"])
+        preview_path = selected_video.get("preview")
+        if preview_path and os.path.exists(preview_path):
+            st.video(preview_path)
             st.session_state.analytics.setdefault(selected_video["id"], {"previewed": 0, "downloaded": 0})
             st.session_state.analytics[selected_video["id"]]["previewed"] += 1
         else:
-            st.warning("⚠️ Preview not available for this video.")
+            # Attempt to regenerate preview
+            try:
+                path = Path(selected_video["path"])
+                preview_path = PREVIEW_DIR / f"preview_{path.name}"
+                with VideoFileClip(path) as clip:
+                    preview_clip = clip.subclip(0, min(PREVIEW_DURATION, clip.duration))
+                    preview_clip.write_videofile(str(preview_path), codec="libx264", audio_codec="aac", logger=None)
+                selected_video["preview"] = str(preview_path)
+                st.video(str(preview_path))
+                st.session_state.analytics.setdefault(selected_video["id"], {"previewed": 0, "downloaded": 0})
+                st.session_state.analytics[selected_video["id"]]["previewed"] += 1
+                st.success("✅ Preview regenerated and played.")
+            except Exception as e:
+                st.error(f"⚠️ Preview not available for this video. Error: {e}")
 
     # Payment & full access
     if not st.session_state.paid.get(selected_video["id"], False):
