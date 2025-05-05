@@ -18,7 +18,7 @@ else:
     video_metadata = []
 
 # Initialize session state
-if 'paid' not in st.session_state:
+if 'paid' not in st.session_state or not isinstance(st.session_state.paid, dict):
     st.session_state.paid = {}
 
 # Upload new video form
