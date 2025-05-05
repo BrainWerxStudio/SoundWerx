@@ -22,19 +22,39 @@ if METADATA_FILE.exists():
 else:
     video_metadata = []
 
-# 🔁 Auto-regenerate missing previews
+# 🔧 Optional: Manually fix "Mindslip"
 for video in video_metadata:
-    if "preview" not in video or not os.path.exists(video.get("preview", "")):
-        full_path = video["path"]
-        preview_path = PREVIEW_DIR / f"preview_{os.path.basename(full_path)}"
+    if video["title"].lower() == "mindslip":
+        try:
+            path = Path(video["path"])
+            preview_path = PREVIEW_DIR / f"preview_{path.name}"
+            if preview_path.exists():
+                preview_path.unlink()  # delete broken preview
+
+            with VideoFileClip(path) as clip:
+                preview_clip = clip.subclip(0, min(PREVIEW_DURATION, clip.duration))
+                preview_clip.write_videofile(str(preview_path), codec="libx264", audio_codec="aac", logger=None)
+            video["preview"] = str(preview_path)
+            print("✅ Preview re-created for Mindslip")
+        except Exception as e:
+            print(f"❌ Mindslip preview failed: {e}")
+
+# 🔁 Auto-regenerate missing previews (with logging)
+for video in video_metadata:
+    full_path = Path(video["path"])
+    preview_path = PREVIEW_DIR / f"preview_{full_path.name}"
+
+    if not preview_path.exists():
         try:
             with VideoFileClip(full_path) as clip:
                 preview_clip = clip.subclip(0, min(PREVIEW_DURATION, clip.duration))
                 preview_clip.write_videofile(str(preview_path), codec="libx264", audio_codec="aac", logger=None)
             video["preview"] = str(preview_path)
-            print(f"✅ Preview created for {video['title']}")
+            print(f"✅ Created preview for: {video['title']}")
         except Exception as e:
-            print(f"❌ Failed to create preview for {video['title']}: {e}")
+            print(f"❌ Failed to create preview for '{video['title']}' ({full_path}): {e}")
+    else:
+        video["preview"] = str(preview_path)
 
 # Save updated metadata
 with open(METADATA_FILE, "w") as f:
