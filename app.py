@@ -70,8 +70,8 @@ if video_metadata:
     st.subheader(selected_video["title"])
     st.write(selected_video["description"])
 
-    # Display cover art if available
-    if selected_video["cover_art"]:
+    # Check if cover art exists before trying to display it
+    if selected_video.get("cover_art"):
         st.image(STORAGE_DIR / selected_video["cover_art"], caption="Cover Art")
 
     # Show preview
