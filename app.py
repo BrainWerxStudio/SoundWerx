@@ -84,7 +84,12 @@ if video_metadata:
     if st.button("Preview 10s"):
         preview_video_path = selected_video["path"]
         st.video(preview_video_path, start_time=0)
-        st.session_state.analytics[selected_video["id"]]["previewed"] += 1
+        
+        # Debugging: Check if the video ID exists in analytics
+        if selected_video["id"] in st.session_state.analytics:
+            st.session_state.analytics[selected_video["id"]]["previewed"] += 1
+        else:
+            st.warning(f"Warning: {selected_video['id']} not found in analytics!")
 
     # Display pricing info and simulate payment
     if not st.session_state.paid.get(selected_video["id"], False):
@@ -103,8 +108,11 @@ if video_metadata:
             )
 
     # Show analytics
-    preview_count = st.session_state.analytics[selected_video["id"]]["previewed"]
-    download_count = st.session_state.analytics[selected_video["id"]]["downloaded"]
-    st.write(f"Previewed {preview_count} times, Downloaded {download_count} times.")
+    if selected_video["id"] in st.session_state.analytics:
+        preview_count = st.session_state.analytics[selected_video["id"]]["previewed"]
+        download_count = st.session_state.analytics[selected_video["id"]]["downloaded"]
+        st.write(f"Previewed {preview_count} times, Downloaded {download_count} times.")
+    else:
+        st.warning(f"Warning: Analytics for {selected_video['id']} not found!")
 else:
     st.info("No songs uploaded yet.")
