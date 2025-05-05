@@ -22,6 +22,24 @@ if METADATA_FILE.exists():
 else:
     video_metadata = []
 
+# 🔁 Auto-regenerate missing previews
+for video in video_metadata:
+    if "preview" not in video or not os.path.exists(video.get("preview", "")):
+        full_path = video["path"]
+        preview_path = PREVIEW_DIR / f"preview_{os.path.basename(full_path)}"
+        try:
+            with VideoFileClip(full_path) as clip:
+                preview_clip = clip.subclip(0, min(PREVIEW_DURATION, clip.duration))
+                preview_clip.write_videofile(str(preview_path), codec="libx264", audio_codec="aac", logger=None)
+            video["preview"] = str(preview_path)
+            print(f"✅ Preview created for {video['title']}")
+        except Exception as e:
+            print(f"❌ Failed to create preview for {video['title']}: {e}")
+
+# Save updated metadata
+with open(METADATA_FILE, "w") as f:
+    json.dump(video_metadata, f)
+
 # Initialize session state
 if 'paid' not in st.session_state or not isinstance(st.session_state.paid, dict):
     st.session_state.paid = {}
@@ -91,7 +109,6 @@ if video_metadata:
         st.image(STORAGE_DIR / selected_video["cover_art"], caption="Cover Art")
 
     # Preview button
-       # Preview button
     if st.button("▶ Preview 10s"):
         if "preview" in selected_video and os.path.exists(selected_video["preview"]):
             st.video(selected_video["preview"])
@@ -99,7 +116,6 @@ if video_metadata:
             st.session_state.analytics[selected_video["id"]]["previewed"] += 1
         else:
             st.warning("⚠️ Preview not available for this video.")
-
 
     # Payment & full access
     if not st.session_state.paid.get(selected_video["id"], False):
