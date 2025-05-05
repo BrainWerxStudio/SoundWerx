@@ -9,6 +9,7 @@ st.title("🎬 Upload and Sell Your MP4 Video")
 STORAGE_DIR = Path("temp")
 METADATA_FILE = STORAGE_DIR / "metadata.json"
 STORAGE_DIR.mkdir(exist_ok=True)
+PREVIEW_DURATION = 10  # seconds
 
 # Load metadata
 if METADATA_FILE.exists():
@@ -20,6 +21,8 @@ else:
 # Initialize session state
 if 'paid' not in st.session_state or not isinstance(st.session_state.paid, dict):
     st.session_state.paid = {}
+if 'analytics' not in st.session_state:
+    st.session_state.analytics = {v['id']: {'previewed': 0, 'downloaded': 0} for v in video_metadata}
 
 # Upload new video form
 st.subheader("Upload New Video")
@@ -29,6 +32,7 @@ with st.form("upload_form"):
     description = st.text_area("Description")
     price = st.text_input("Price")
     currency = st.selectbox("Currency", ["USD", "SOL"])
+    cover_art = st.file_uploader("Upload Cover Art (optional)", type=["jpg", "png"])
     submitted = st.form_submit_button("Upload and List")
 
 if submitted:
@@ -43,7 +47,10 @@ if submitted:
             "description": description,
             "price": price,
             "currency": currency,
-            "path": str(file_path)
+            "path": str(file_path),
+            "cover_art": cover_art.name if cover_art else None,
+            "previewed": 0,
+            "downloaded": 0
         }
         video_metadata.append(entry)
         with open(METADATA_FILE, "w") as f:
@@ -63,6 +70,17 @@ if video_metadata:
     st.subheader(selected_video["title"])
     st.write(selected_video["description"])
 
+    # Display cover art if available
+    if selected_video["cover_art"]:
+        st.image(STORAGE_DIR / selected_video["cover_art"], caption="Cover Art")
+
+    # Show preview
+    if st.button("Preview 10s"):
+        preview_video_path = selected_video["path"]
+        st.video(preview_video_path, start_time=0)
+        st.session_state.analytics[selected_video["id"]]["previewed"] += 1
+
+    # Display pricing info and simulate payment
     if not st.session_state.paid.get(selected_video["id"], False):
         st.info(f"💰 Price: {selected_video['price']} {selected_video['currency']}")
         if st.button("Simulate Payment"):
@@ -77,5 +95,10 @@ if video_metadata:
                 file_name=os.path.basename(selected_video["path"]),
                 mime="video/mp4"
             )
+
+    # Show analytics
+    preview_count = st.session_state.analytics[selected_video["id"]]["previewed"]
+    download_count = st.session_state.analytics[selected_video["id"]]["downloaded"]
+    st.write(f"Previewed {preview_count} times, Downloaded {download_count} times.")
 else:
     st.info("No songs uploaded yet.")
