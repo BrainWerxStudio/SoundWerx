@@ -2,7 +2,6 @@ import streamlit as st
 import os
 from pathlib import Path
 import json
-from moviepy.editor import VideoFileClip
 
 st.set_page_config(page_title="MP4 Seller Prototype", layout="centered")
 st.title("🎬 Upload and Sell Your MP4 Video")
@@ -13,7 +12,6 @@ METADATA_FILE = STORAGE_DIR / "metadata.json"
 
 STORAGE_DIR.mkdir(exist_ok=True)
 PREVIEW_DIR.mkdir(exist_ok=True)
-PREVIEW_DURATION = 10  # seconds
 
 # Load metadata
 if METADATA_FILE.exists():
@@ -21,42 +19,6 @@ if METADATA_FILE.exists():
         video_metadata = json.load(f)
 else:
     video_metadata = []
-
-# 🔧 Optional: Manually fix "Mindslip"
-for video in video_metadata:
-    if video["title"].lower() == "mindslip":
-        try:
-            path = Path(video["path"])
-            preview_path = PREVIEW_DIR / f"preview_{path.name}"
-            if preview_path.exists():
-                preview_path.unlink()  # delete broken preview
-
-            clip = VideoFileClip(str(path)).subclip(0, min(PREVIEW_DURATION, VideoFileClip(str(path)).duration))
-            clip.write_videofile(str(preview_path), codec="libx264", audio_codec="aac", logger=None)
-            video["preview"] = str(preview_path)
-            print("✅ Preview re-created for Mindslip")
-        except Exception as e:
-            print(f"❌ Mindslip preview failed: {e}")
-
-# 🔁 Auto-regenerate missing previews (with logging)
-for video in video_metadata:
-    full_path = Path(video["path"])
-    preview_path = PREVIEW_DIR / f"preview_{full_path.name}"
-
-    if not preview_path.exists():
-        try:
-            clip = VideoFileClip(str(full_path)).subclip(0, min(PREVIEW_DURATION, VideoFileClip(str(full_path)).duration))
-            clip.write_videofile(str(preview_path), codec="libx264", audio_codec="aac", logger=None)
-            video["preview"] = str(preview_path)
-            print(f"✅ Created preview for: {video['title']}")
-        except Exception as e:
-            print(f"❌ Failed to create preview for '{video['title']}' ({full_path}): {e}")
-    else:
-        video["preview"] = str(preview_path)
-
-# Save updated metadata
-with open(METADATA_FILE, "w") as f:
-    json.dump(video_metadata, f)
 
 # Initialize session state
 if 'paid' not in st.session_state or not isinstance(st.session_state.paid, dict):
@@ -82,11 +44,7 @@ if submitted:
         with open(file_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
 
-        # Create 10-second preview
-        preview_file = PREVIEW_DIR / f"preview_{uploaded_file.name}"
-        clip = VideoFileClip(str(file_path)).subclip(0, min(PREVIEW_DURATION, VideoFileClip(str(file_path)).duration))
-        clip.write_videofile(str(preview_file), codec="libx264", audio_codec="aac", logger=None)
-
+        # Save metadata
         entry = {
             "id": uploaded_file.name,
             "title": title,
@@ -94,7 +52,7 @@ if submitted:
             "price": price,
             "currency": currency,
             "path": str(file_path),
-            "preview": str(preview_file),
+            "preview": None,
             "cover_art": cover_art.name if cover_art else None
         }
         video_metadata.append(entry)
@@ -112,10 +70,10 @@ if submitted:
     else:
         st.error("❌ Please complete all fields and upload a video.")
 
-# Browse existing songs
-st.subheader("Available Songs")
+# Browse existing videos
+st.subheader("Available Videos")
 if video_metadata:
-    selected_title = st.selectbox("Choose a song to preview and buy", [v["title"] for v in video_metadata])
+    selected_title = st.selectbox("Choose a video to preview and buy", [v["title"] for v in video_metadata])
     selected_video = next(v for v in video_metadata if v["title"] == selected_title)
 
     st.markdown("---")
@@ -133,19 +91,7 @@ if video_metadata:
             st.session_state.analytics.setdefault(selected_video["id"], {"previewed": 0, "downloaded": 0})
             st.session_state.analytics[selected_video["id"]]["previewed"] += 1
         else:
-            # Attempt to regenerate preview
-            try:
-                path = Path(selected_video["path"])
-                preview_path = PREVIEW_DIR / f"preview_{path.name}"
-                clip = VideoFileClip(str(path)).subclip(0, min(PREVIEW_DURATION, VideoFileClip(str(path)).duration))
-                clip.write_videofile(str(preview_path), codec="libx264", audio_codec="aac", logger=None)
-                selected_video["preview"] = str(preview_path)
-                st.video(str(preview_path))
-                st.session_state.analytics.setdefault(selected_video["id"], {"previewed": 0, "downloaded": 0})
-                st.session_state.analytics[selected_video["id"]]["previewed"] += 1
-                st.success("✅ Preview regenerated and played.")
-            except Exception as e:
-                st.error(f"⚠️ Preview not available for this video. Error: {e}")
+            st.warning("⚠️ Preview not available for this video.")
 
     # Payment & full access
     if not st.session_state.paid.get(selected_video["id"], False):
@@ -160,4 +106,4 @@ if video_metadata:
     analytics = st.session_state.analytics.get(selected_video["id"], {"previewed": 0, "downloaded": 0})
     st.write(f"👁️ Previewed {analytics['previewed']} times.")
 else:
-    st.info("No songs uploaded yet.")
+    st.info("No videos uploaded yet.")
