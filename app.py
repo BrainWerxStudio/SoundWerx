@@ -99,13 +99,17 @@ if video_metadata:
             st.success("🎉 Payment received! Enjoy your video.")
     else:
         st.video(selected_video["path"])
-        with open(selected_video["path"], "rb") as vid_file:
-            st.download_button(
-                label="⬇️ Download Video",
-                data=vid_file,
-                file_name=os.path.basename(selected_video["path"]),
-                mime="video/mp4"
-            )
+        # Check if the path exists before offering download
+        if os.path.exists(selected_video["path"]):
+            with open(selected_video["path"], "rb") as vid_file:
+                st.download_button(
+                    label="⬇️ Download Video",
+                    data=vid_file,
+                    file_name=os.path.basename(selected_video["path"]),
+                    mime="video/mp4"
+                )
+        else:
+            st.error("❌ Video file not found.")
 
     # Show analytics
     if selected_video["id"] in st.session_state.analytics:
